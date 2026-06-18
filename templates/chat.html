@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Mental Health Support — DEMO</title>
+  <style>
+    /* Minimal, calm styling. Kept inline so the demo is a single self-contained page. */
+    :root { --bg:#f4f7f9; --card:#ffffff; --accent:#3b7a8c; --warn:#fff4e5; --warnborder:#ffb74d; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+           background:var(--bg); color:#1f2d33; }
+    .wrap { max-width: 680px; margin: 0 auto; padding: 16px; }
+
+    /* Disclaimer banner — always visible at the top per the brief. */
+    .disclaimer { background:var(--warn); border:1px solid var(--warnborder);
+                  border-radius:10px; padding:12px 14px; font-size:14px; margin:12px 0; }
+    .disclaimer strong { display:block; margin-bottom:4px; }
+
+    h1 { font-size:20px; margin:8px 0; }
+    .sub { color:#5a6b72; font-size:13px; margin-top:0; }
+
+    /* Chat area */
+    #log { background:var(--card); border:1px solid #e0e6e9; border-radius:12px;
+           padding:14px; height:48vh; overflow-y:auto; }
+    .msg { margin:8px 0; line-height:1.45; white-space:pre-wrap; }
+    .user { text-align:right; }
+    .user .bubble { background:var(--accent); color:#fff; }
+    .bot .bubble  { background:#eef3f5; color:#1f2d33; }
+    .bubble { display:inline-block; padding:9px 12px; border-radius:14px; max-width:85%; }
+
+    /* Escalation messages get a distinct, serious styling. */
+    .bot.escalated .bubble { background:var(--warn); border:1px solid var(--warnborder); }
+
+    .meta { font-size:11px; color:#7d8c92; margin-top:3px; }
+
+    /* Composer */
+    form { display:flex; gap:8px; margin-top:12px; }
+    #input { flex:1; padding:11px 12px; border:1px solid #cdd6da; border-radius:10px; font-size:15px; }
+    button { padding:11px 16px; border:0; border-radius:10px; background:var(--accent);
+             color:#fff; font-size:15px; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:default; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- DISCLAIMER BANNER: this is the first thing the user sees. -->
+    <div class="disclaimer">
+      <strong>⚠️ This is a demo, not a medical service.</strong>
+      This assistant is a software demonstration of LLM safety engineering. It is
+      <em>not</em> a doctor, therapist, or crisis line, and cannot provide medical
+      advice or emergency help. If you are in crisis, please contact your local
+      emergency services or a verified helpline.
+    </div>
+
+    <h1>AI Mental Health Support Assistant</h1>
+    <p class="sub">A supportive listener with a layered safety system.</p>
+
+    <!-- Conversation log -->
+    <div id="log" aria-live="polite">
+      <div class="msg bot"><span class="bubble">Hi, I'm here to listen. What's on your mind today?</span></div>
+    </div>
+
+    <!-- Composer -->
+    <form id="form">
+      <input id="input" autocomplete="off" placeholder="Type a message…" />
+      <button id="send" type="submit">Send</button>
+    </form>
+  </div>
+
+  <script>
+    // ---- Tiny front-end: send the message to /chat, render the reply. ----
+    const log = document.getElementById("log");
+    const form = document.getElementById("form");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+
+    // Append a message bubble to the log and scroll to it.
+    function addMessage(text, who, opts = {}) {
+      const wrap = document.createElement("div");
+      // who is "user" or "bot"; escalated bot messages get extra styling.
+      wrap.className = "msg " + who + (opts.escalated ? " escalated" : "");
+
+      const bubble = document.createElement("span");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+      wrap.appendChild(bubble);
+
+      // For bot replies, show the sentiment / escalation metadata for transparency.
+      if (who === "bot" && opts.meta) {
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = opts.meta;
+        wrap.appendChild(meta);
+      }
+
+      log.appendChild(wrap);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+
+      addMessage(message, "user");
+      input.value = "";
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message }),
+        });
+        const data = await res.json();
+
+        // Build a small metadata string so the safety behavior is visible in the demo.
+        const s = data.sentiment || {};
+        let meta = `sentiment: ${s.label ?? "?"} (${(s.score ?? 0).toFixed(2)})`;
+        if (data.escalated) meta += " · ⚠️ escalated to crisis resources";
+
+        addMessage(data.reply, "bot", { meta, escalated: data.escalated });
+      } catch (err) {
+        // Network-level failure: never leave the user hanging.
+        addMessage("Sorry, I couldn't reach the server. Please try again.", "bot");
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>

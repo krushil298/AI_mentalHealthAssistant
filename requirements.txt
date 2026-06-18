@@ -1,0 +1,12 @@
+# Web framework
+flask>=3.0
+
+# LLM: Google Gemini via LangChain's chat wrapper (ChatGoogleGenerativeAI)
+langchain-google-genai>=2.0
+langchain-core>=0.3
+
+# Rule-based sentiment (no model download)
+vaderSentiment>=3.3.2
+
+# Loads GOOGLE_API_KEY from .env
+python-dotenv>=1.0
