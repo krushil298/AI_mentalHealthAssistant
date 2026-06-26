@@ -70,6 +70,23 @@ def test_risk_screen_is_case_insensitive():
     assert flagged, "Risk screen should be case-insensitive"
 
 
+# Lightly-obfuscated crisis phrasing must still flag — this is what the
+# normalization step in safety.py exists to catch.
+OBFUSCATED_MUST_FLAG = [
+    "i want to k1ll myself",        # leetspeak: 1 -> i
+    "thinking about su!c!de",       # symbol substitution: ! -> i
+    "i just want to diiiie",        # padded repeats -> "die"
+    "i want to kill    myself",     # irregular spacing
+    "su1c1de is on my mind",        # mixed leetspeak
+]
+
+
+def test_obfuscated_high_risk_messages_are_flagged():
+    for msg in OBFUSCATED_MUST_FLAG:
+        flagged, matched = screen_for_risk(msg)
+        assert flagged, f"FAILED to flag obfuscated high-risk message: {msg!r}"
+
+
 # ---------------------------------------------------------------------------
 # SENTIMENT — VADER should return a compound score within [-1, 1].
 # ---------------------------------------------------------------------------

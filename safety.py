@@ -111,6 +111,33 @@ HIGH_RISK_PATTERNS = [
 _COMPILED_RISK_PATTERNS = [re.compile(p, re.IGNORECASE) for p in HIGH_RISK_PATTERNS]
 
 
+# Common character substitutions people use (deliberately or not) that would slip
+# a plain keyword filter — e.g. "k1ll", "su!c!de", "d1e". We fold them back to
+# letters before screening. This is a recall booster: it costs us nothing on
+# normal text but catches lightly-obfuscated crisis language.
+_LEET_MAP = str.maketrans({
+    "0": "o", "1": "i", "3": "e", "4": "a",
+    "5": "s", "7": "t", "@": "a", "$": "s", "!": "i",
+})
+
+
+def _normalize_for_screen(message: str) -> str:
+    """
+    Produce a normalized copy of the message used ONLY for risk screening.
+
+    We deliberately distort the text toward catching evasion (high recall); we do
+    NOT use this version for anything shown to the user. Steps:
+      1. lowercase,
+      2. map common leetspeak/symbol substitutions back to letters,
+      3. collapse 3+ repeats of the same character ("diiiie" -> "die"),
+      4. collapse whitespace runs ("kill    myself" -> "kill myself").
+    """
+    text = message.lower().translate(_LEET_MAP)
+    text = re.sub(r"(.)\1{2,}", r"\1", text)   # squeeze long character repeats
+    text = re.sub(r"\s+", " ", text)           # squeeze whitespace runs
+    return text
+
+
 def screen_for_risk(message: str):
     """
     Fast first-pass risk screen.
@@ -119,12 +146,15 @@ def screen_for_risk(message: str):
         is_flagged    -> True if ANY high-risk pattern matched.
         matched_terms -> list of the patterns that matched (useful for logging).
 
-    Because we OR together many broad patterns, this errs toward flagging — the
-    high-recall behavior we want for a safety gate.
+    We test each pattern against BOTH the raw message and a normalized copy (see
+    _normalize_for_screen) so lightly-obfuscated phrasing still trips the screen.
+    Because we OR together many broad patterns over two views of the text, this
+    errs strongly toward flagging — the high-recall behavior we want for a gate.
     """
+    normalized = _normalize_for_screen(message)
     matched_terms = []
     for pattern in _COMPILED_RISK_PATTERNS:
-        if pattern.search(message):
+        if pattern.search(message) or pattern.search(normalized):
             matched_terms.append(pattern.pattern)
 
     is_flagged = len(matched_terms) > 0
