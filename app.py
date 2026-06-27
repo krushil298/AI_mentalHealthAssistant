@@ -114,6 +114,25 @@ def index():
     return render_template("chat.html")
 
 
+@app.route("/health", methods=["GET"])
+def health():
+    """
+    Lightweight health/readiness check.
+
+    Useful for deployment monitoring and for confirming configuration WITHOUT
+    sending a chat message. It reports:
+      - status: the service is up and serving requests,
+      - llm_configured: whether GOOGLE_API_KEY is present. If this is False the
+        normal chat path will return the safe fallback instead of a real reply.
+
+    Note: we never expose the key itself — only whether one is set.
+    """
+    return jsonify({
+        "status": "ok",
+        "llm_configured": bool(GOOGLE_API_KEY),
+    })
+
+
 @app.route("/chat", methods=["POST"])
 def chat():
     """

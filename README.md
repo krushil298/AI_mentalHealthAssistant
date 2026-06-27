@@ -158,12 +158,22 @@ The safety layer is the part where a bug is most costly, so it has a test suite
 covering risk-screen recall, sentiment ranges, and the escalation decision:
 
 ```bash
-python test_safety.py        # no extra deps; also works with: pytest test_safety.py
+python test_safety.py        # safety layer: risk screen, sentiment, escalation
+python test_app.py           # Flask endpoints (no API key needed)
+# both also work with: pytest
 ```
 
 ---
 
 ## API
+
+`GET /health` returns service status and whether the LLM key is configured (the
+key itself is never exposed):
+
+```json
+{ "status": "ok", "llm_configured": true }
+```
+
 
 `POST /chat` with `{"message": "..."}` returns:
 
